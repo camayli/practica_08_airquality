@@ -3,81 +3,56 @@ name: ETL Pipeline
 run-name: Daily ETL Pipeline Run 
 
 env: 
-
   PYTHON_VERSION: "3.14" 
-
   AUTOMATION_USERNAME: "camayli" 
-
   AUTOMATION_EMAIL: "camiriveri@gmail.com" 
 
- 
-
 on: 
-
   workflow_dispatch: 
-
   schedule: 
-
     - cron: "21 7 * * *" 
 
- 
-
 jobs: 
-
   run-etl-pipeline: 
-
     runs-on: ubuntu-latest 
-
     steps: 
-
       - name: Checkout 
-
         uses: actions/checkout@master 
 
       - name: Set up Python 
-
         uses: actions/setup-python@v6 
-
         with: 
-
-          python-version: ${{ env.PYTHON_VERSION }} 
-
+          python-version: ${{ env.PYTHON_VERSION }}  
 
       - name: Cached dependencies
-        
+        id: cache-req        
         uses: actions/cache@v5
         with:
-          path: ~/.cache/pip
+          path: ~/src/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: ETL Pipeline 
-
-        env: 
-
-          OPENAQ_KEY: ${{ secrets.OPENAQ_KEY }} 
-
+      - name: Install Dependencies 
+        if: steps.cache-req.outputs.cache-hit != 'true'
         run: | 
-
-          python src/pipeline.py 
+            python -m pip install --upgrade pip
+            pip install -r src/requirements.txt 
+      
+      - name: ETL Pipeline
+        env:
+          OPENAQ_KEY: ${{ secrets.OPENAQ_KEY }} 
+        run: |
+          python src/pipeline.py
 
       - name: Peek Data output 
+        run: |
+          head -n 10 data/air_data.csv
 
-        run: | 
-
-          head -n 10 data/air_data.csv 
-
-      - name: Commit report 
-
-        run: | 
-
+      - name: Commit report
+        run: |
           git config --global user.name "$AUTOMATION_USERNAME" 
-
           git config --global user.email "$AUTOMATION_EMAIL" 
-
-          git add data/. 
-
-           git commit -am "gh actions: Update data $(date)" 
-
-          git push 
+          git add data/.
+          git commit -am "gh actions: Update data $(date)" 
+          git push
